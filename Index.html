@@ -1,0 +1,273 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precision Step Fit Pro | Arvind Kumar Shukla</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+        body {
+            background-color: #0f172a;
+            font-family: 'Outfit', sans-serif;
+            color: #f8fafc;
+        }
+        .precision-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .active-tab {
+            background-color: #2563eb;
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .input-group label {
+            transition: all 0.2s ease;
+        }
+        .input-group:focus-within label {
+            color: #60a5fa;
+        }
+        .btn-clear {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-clear:hover {
+            background-color: #ef4444;
+            color: white;
+            transform: translateY(-1px);
+        }
+        .standard-tag {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        .highlight-border {
+            border-color: #3b82f6 !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-xl w-full py-8">
+        <!-- Brand Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent uppercase tracking-tighter">
+                Precision Step Fit
+            </h1>
+            <p class="text-slate-400 text-sm font-medium mt-1 uppercase tracking-widest">Scientific Size Conversion Engine</p>
+        </div>
+
+        <div class="precision-card rounded-3xl p-6 md:p-8">
+            <!-- Mode Switcher -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/50 p-1.5 rounded-2xl mb-6">
+                <button onclick="setType('men')" id="btn-men" class="active-tab py-2.5 rounded-xl font-bold transition-all text-sm">MEN</button>
+                <button onclick="setType('women')" id="btn-women" class="py-2.5 rounded-xl font-bold transition-all text-sm text-slate-500 hover:text-slate-300">WOMEN</button>
+                <button onclick="setType('kids')" id="btn-kids" class="py-2.5 rounded-xl font-bold transition-all text-sm text-slate-500 hover:text-slate-300">KIDS</button>
+            </div>
+
+            <div class="mb-6">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Calculate by any standard below:</p>
+            </div>
+
+            <!-- Conversion Grid -->
+            <div class="space-y-5">
+                <!-- Row 1: Primary Inputs -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- EU Input -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">Europe (EU)</label>
+                        <input type="number" step="0.5" id="size-eu" placeholder="EU Size" 
+                            class="w-full bg-slate-900/40 border-2 border-slate-700 rounded-xl px-4 py-3 text-xl font-bold focus:border-blue-500 outline-none transition-all"
+                            oninput="syncFromEU(this.value)">
+                        <span class="standard-tag">Standard: Paris Point</span>
+                    </div>
+
+                    <!-- UK Input -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">United Kingdom (UK)</label>
+                        <input type="number" step="0.5" id="size-uk" placeholder="UK Size" 
+                            class="w-full bg-slate-900/40 border-2 border-slate-700 rounded-xl px-4 py-3 text-xl font-bold focus:border-blue-500 outline-none transition-all"
+                            oninput="syncFromUK(this.value)">
+                        <span class="standard-tag">Standard: Barleycorn</span>
+                    </div>
+                </div>
+
+                <!-- Row 2: North American Standards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- US Input -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">United States (US)</label>
+                        <input type="number" step="0.5" id="size-us" placeholder="US Size" 
+                            class="w-full bg-slate-900/40 border-2 border-slate-700 rounded-xl px-4 py-3 text-xl font-bold focus:border-blue-500 outline-none transition-all"
+                            oninput="syncFromUS(this.value)">
+                        <span class="standard-tag">Standard: Brannock</span>
+                    </div>
+
+                    <!-- CA Input -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">Canada (CA)</label>
+                        <input type="number" step="0.5" id="size-ca" placeholder="CA Size" 
+                            class="w-full bg-slate-900/40 border-2 border-slate-700 rounded-xl px-4 py-3 text-xl font-bold focus:border-blue-500 outline-none transition-all"
+                            oninput="syncFromCA(this.value)">
+                        <span class="standard-tag">Standard: Brannock</span>
+                    </div>
+                </div>
+
+                <!-- Row 3: India & Metric -->
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- IN Input -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-orange-400 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">India (IN)</label>
+                        <input type="number" step="0.5" id="size-in" placeholder="IN Size" 
+                            class="w-full bg-orange-500/5 border-2 border-orange-500/30 rounded-xl px-4 py-3 text-xl font-bold focus:border-orange-500 outline-none transition-all text-orange-100"
+                            oninput="syncFromIN(this.value)">
+                        <span class="standard-tag text-orange-400/70">Standard: UK Scale</span>
+                    </div>
+
+                    <!-- Foot Length (CM) -->
+                    <div class="relative group input-group">
+                        <label class="text-[10px] font-bold text-blue-400 uppercase tracking-widest absolute left-4 -top-2 bg-[#1e293b] px-2 z-10">Foot Length (CM)</label>
+                        <input type="number" step="0.1" id="size-cm" placeholder="Length" 
+                            class="w-full bg-blue-500/5 border-2 border-blue-500/30 rounded-xl px-4 py-3 text-xl font-bold focus:border-blue-500 outline-none transition-all text-blue-100"
+                            oninput="syncFromCM(this.value)">
+                        <span class="standard-tag text-blue-400/70">Standard: MondoPoint</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clear Action -->
+            <button onclick="clearAll()" class="btn-clear mt-8 w-full py-4 rounded-2xl border-2 border-slate-700 font-bold text-slate-400 uppercase tracking-widest text-xs flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Clear Results
+            </button>
+
+            <!-- Technical Methodology -->
+            <div class="mt-8 pt-6 border-t border-slate-700/50">
+                <h3 class="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] mb-4">Methodology & Standards</h3>
+                <div class="grid grid-cols-1 gap-3 text-[11px] text-slate-400">
+                    <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-700/30 flex justify-between items-center">
+                        <span><span class="text-slate-200 font-bold">EU Calculation:</span> Paris Point System</span>
+                        <span class="text-blue-500 font-mono italic">1 size = 0.667cm</span>
+                    </div>
+                    <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-700/30 flex justify-between items-center">
+                        <span><span class="text-slate-200 font-bold">UK/IN Calculation:</span> Barleycorn Units</span>
+                        <span class="text-blue-500 font-mono italic">1 size = 0.33in</span>
+                    </div>
+                    <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-700/30 flex justify-between items-center">
+                        <span><span class="text-slate-200 font-bold">US/CA Calculation:</span> Brannock Device</span>
+                        <span class="text-blue-500 font-mono italic">Offset based</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Professional Footer -->
+        <div class="mt-8 text-center">
+            <div class="inline-flex flex-col items-center">
+                <span class="text-[10px] font-bold text-slate-600 uppercase tracking-[0.3em]">Designer & Developer</span>
+                <span class="text-lg font-bold text-slate-300">Arvind Kumar Shukla</span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="w-1 h-1 bg-blue-500 rounded-full"></span>
+                    <a href="tel:9616417485" class="text-blue-500 font-semibold text-sm hover:text-blue-400 transition-colors">9616417485</a>
+                    <span class="w-1 h-1 bg-blue-500 rounded-full"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentType = 'men';
+
+        function setType(t) {
+            currentType = t;
+            ['men', 'women', 'kids'].forEach(btn => {
+                const el = document.getElementById('btn-' + btn);
+                el.className = (btn === t) 
+                    ? 'active-tab py-2.5 rounded-xl font-bold transition-all text-sm' 
+                    : 'py-2.5 rounded-xl font-bold transition-all text-sm text-slate-500 hover:text-slate-300';
+            });
+            const currentCM = document.getElementById('size-cm').value;
+            if(currentCM) syncFromCM(currentCM);
+        }
+
+        function syncFromCM(cm) {
+            if(!cm) return clearAll();
+            const val = parseFloat(cm);
+            const inches = val / 2.54;
+            let us, uk, eu;
+
+            if (currentType === 'kids') {
+                us = (inches * 3) - 9.75;
+                uk = (inches * 3) - 10;
+            } else {
+                us = currentType === 'men' ? (inches * 3) - 22 : (inches * 3) - 21;
+                uk = (inches * 3) - 23;
+            }
+            eu = (val + 1.5) / 0.667;
+
+            updateFields(us, uk, eu, val);
+        }
+
+        // Calculation entry points for specific standards
+        function syncFromEU(val) {
+            if(!val) return clearAll();
+            const v = parseFloat(val);
+            const cm = (v * 0.667) - 1.5;
+            syncFromCM(cm.toFixed(2));
+        }
+
+        function syncFromUK(val) {
+            if(!val) return clearAll();
+            const v = parseFloat(val);
+            let inches = (currentType === 'kids') ? (v + 10) / 3 : (v + 23) / 3;
+            syncFromCM((inches * 2.54).toFixed(2));
+        }
+
+        function syncFromIN(val) { syncFromUK(val); }
+
+        function syncFromUS(val) {
+            if(!val) return clearAll();
+            const v = parseFloat(val);
+            let inches = (currentType === 'kids') ? (v + 9.75) / 3 : (currentType === 'men' ? (v + 22) / 3 : (v + 21) / 3);
+            syncFromCM((inches * 2.54).toFixed(2));
+        }
+
+        function syncFromCA(val) { syncFromUS(val); }
+
+        function updateFields(us, uk, eu, cm) {
+            const round = (n) => (Math.round(n * 2) / 2).toFixed(1);
+            
+            // Set values if not currently active
+            const map = {
+                'size-us': round(us),
+                'size-ca': round(us),
+                'size-uk': round(uk),
+                'size-in': round(uk),
+                'size-eu': round(eu),
+                'size-cm': cm.toFixed(1)
+            };
+
+            for (const [id, value] of Object.entries(map)) {
+                if (document.activeElement.id !== id) {
+                    document.getElementById(id).value = value;
+                }
+            }
+        }
+
+        function clearAll() {
+            ['us', 'uk', 'eu', 'cm', 'in', 'ca'].forEach(id => document.getElementById(id).value = '');
+        }
+    </script>
+</body>
+</html>
+
+```
