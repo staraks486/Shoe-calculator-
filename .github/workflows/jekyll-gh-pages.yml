@@ -29,11 +29,12 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Step 3: Upload the "Caculator" folder as the website source
+      # Step 3: Upload the files. 
+      # Since your index.html is in the main folder of the repo, we use '.'
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './Caculator/'
+          path: '.'
 
       # Step 4: Deploy to the internet
       - name: Deploy to GitHub Pages
