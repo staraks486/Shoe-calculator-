@@ -1,562 +1,730 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Calculator, 
-  ShoppingCart, 
-  HeartPulse, 
-  Zap, 
-  Ruler, 
-  Briefcase, 
-  Mic, 
-  MicOff, 
-  History,
-  Trash2,
-  Plus,
-  Minus,
-  Equal,
-  Calendar,
-  X,
-  TrendingUp,
-  Percent,
-  ArrowRightLeft,
-  RotateCcw,
-  TrendingDown
-} from 'lucide-react';
-
-const App = () => {
-  // Navigation & Global State
-  const [activeTab, setActiveTab] = useState('finance');
-  const [history, setHistory] = useState([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  // Standard Calculator State
-  const [calcDisplay, setCalcDisplay] = useState('0');
-  const [calcPrevValue, setCalcPrevValue] = useState(null);
-  const [calcBuffer, setCalcBuffer] = useState('');
-  const [lastOp, setLastOp] = useState(null);
-  const [shouldReset, setShouldReset] = useState(false);
-
-  // Shopping Calculator State
-  const [shopMode, setShopMode] = useState('price'); 
-  const [shopOrig, setShopOrig] = useState('');
-  const [shopValue, setShopValue] = useState(''); 
-  const [isListening, setIsListening] = useState(false);
-
-  // Stock Average State
-  const [stk, setStk] = useState({ q1: '', p1: '', q2: '', p2: '', res: null });
-
-  // Field Tool States
-  const [bmi, setBmi] = useState({ w: '', h: '', res: null, status: '' });
-  const [pyth, setPyth] = useState({ a: '', b: '', res: null });
-  const [unit, setUnit] = useState({ val: '', type: 'kg-lb', res: null });
-  const [age, setAge] = useState({ dob: '', res: null });
-
-  const addToHistory = (name, result) => {
-    const entry = { 
-      id: Date.now(), 
-      name, 
-      result, 
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
-    };
-    setHistory(prev => [entry, ...prev].slice(0, 15));
-  };
-
-  // --- Persistent Voice Logic ---
-  const recognitionRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && (window.webkitSpeechRecognition || window.SpeechRecognition)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-IN';
-
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
-        const numbers = transcript.match(/\d+/g);
-        if (numbers && numbers.length >= 2) {
-          setShopOrig(numbers[0]);
-          setShopValue(numbers[1]);
-          addToHistory('Voice Shopping', `₹${numbers[0]} input`);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniCalc Pro - All-in-One Utility</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
-      };
 
-      recognitionRef.current.onend = () => {
-        if (isListening && recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.error("Speech restart failed", e);
-          }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
         }
-      };
-    }
-  }, [isListening]);
 
-  const toggleVoice = () => {
-    if (!recognitionRef.current) {
-      alert("Speech recognition is not supported in this browser.");
-      return;
-    }
-    if (isListening) {
-      setIsListening(false);
-      recognitionRef.current.stop();
-    } else {
-      setIsListening(true);
-      recognitionRef.current.start();
-    }
-  };
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-  // --- Standard Calculator Logic ---
-  const handleNum = (num) => {
-    if (calcDisplay === '0' || shouldReset) {
-      setCalcDisplay(num === '.' ? '0.' : num);
-      setShouldReset(false);
-    } else {
-      if (num === '.' && calcDisplay.includes('.')) return;
-      setCalcDisplay(calcDisplay + num);
-    }
-  };
+        .animate-fadeIn {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
 
-  const handleOp = (op) => {
-    const current = parseFloat(calcDisplay);
-    if (calcPrevValue !== null && !shouldReset) {
-      performCalculation();
-    } else {
-      setCalcPrevValue(current);
-    }
-    setLastOp(op);
-    setCalcBuffer(`${current} ${op === '*' ? '×' : op === '/' ? '÷' : op}`);
-    setShouldReset(true);
-  };
+        .calc-btn-active {
+            transform: scale(0.95);
+            background-color: #e2e8f0;
+        }
 
-  const performCalculation = () => {
-    if (lastOp === null || calcPrevValue === null) return;
-    const current = parseFloat(calcDisplay);
-    let res = 0;
-    switch (lastOp) {
-      case '+': res = calcPrevValue + current; break;
-      case '-': res = calcPrevValue - current; break;
-      case '*': res = calcPrevValue * current; break;
-      case '/': res = current !== 0 ? calcPrevValue / current : 'Error'; break;
-      default: return;
-    }
-    const finalRes = typeof res === 'number' ? (Number.isInteger(res) ? res : res.toFixed(2)) : res;
-    setCalcDisplay(finalRes.toString());
-    setCalcPrevValue(typeof res === 'number' ? res : null);
-    return finalRes;
-  };
+        .mic-active-pulse {
+            box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+            animation: pulse 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+        }
 
-  const handleEqual = () => {
-    const res = performCalculation();
-    if (res !== undefined) {
-      setCalcBuffer('');
-      setLastOp(null);
-      setShouldReset(true);
-      addToHistory('Calculation', res);
-    }
-  };
+        @keyframes pulse {
+            to { box-shadow: 0 0 0 15px rgba(244, 63, 94, 0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 selection:bg-indigo-100">
 
-  const handleClear = () => {
-    setCalcDisplay('0');
-    setCalcPrevValue(null);
-    setCalcBuffer('');
-    setLastOp(null);
-    setShouldReset(false);
-  };
-
-  // --- Field Tool Calculations ---
-  const handleBMICalc = () => {
-    if (!bmi.w || !bmi.h) return;
-    const resValue = (bmi.w / ((bmi.h / 100) ** 2)).toFixed(1);
-    let statusLabel = 'Healthy';
-    if (resValue < 18.5) statusLabel = 'Underweight';
-    else if (resValue >= 25 && resValue < 30) statusLabel = 'Overweight';
-    else if (resValue >= 30) statusLabel = 'Obese';
-    setBmi({ ...bmi, res: resValue, status: statusLabel });
-    addToHistory('BMI Check', resValue);
-  };
-
-  const handleStkCalc = () => {
-    const q1 = parseFloat(stk.q1) || 0;
-    const p1 = parseFloat(stk.p1) || 0;
-    const q2 = parseFloat(stk.q2) || 0;
-    const p2 = parseFloat(stk.p2) || 0;
-    
-    if (q1 + q2 === 0) return;
-    const totalInv = (q1 * p1) + (q2 * p2);
-    const totalQty = q1 + q2;
-    const avg = (totalInv / totalQty).toFixed(2);
-    setStk({ ...stk, res: avg });
-    addToHistory('Stock Average', `₹${avg}`);
-  };
-
-  const shopCalculation = () => {
-    const orig = parseFloat(shopOrig) || 0;
-    const val = parseFloat(shopValue) || 0;
-    if (orig === 0) return { main: '0', sub: 'Ready for values' };
-
-    if (shopMode === 'price') {
-      const final = orig - (orig * (val / 100));
-      return { 
-        main: Math.round(final).toLocaleString(), 
-        sub: `You Save ₹${Math.round(orig - final).toLocaleString()}` 
-      };
-    } else {
-      const p = ((orig - val) / orig) * 100;
-      return { 
-        main: `${p.toFixed(1)}%`, 
-        sub: `You Save ₹${Math.round(orig - val).toLocaleString()}` 
-      };
-    }
-  };
-
-  const shopRes = shopCalculation();
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2 rounded-xl text-white shadow-lg">
-              <Calculator size={22} strokeWidth={2.5} />
+    <!-- Header -->
+    <header class="bg-white/80 backdrop-blur-md border-b sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <div class="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2 rounded-xl text-white shadow-lg">
+                    <i data-lucide="calculator" class="w-5 h-5"></i>
+                </div>
+                <h1 class="text-xl font-extrabold tracking-tight text-slate-800">OmniCalc <span class="text-indigo-600">Pro</span></h1>
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-800">OmniCalc <span className="text-indigo-600">Pro</span></h1>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {isListening && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 rounded-full border border-rose-100">
-                <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />
-                <span className="text-[10px] font-bold text-rose-600 uppercase">Mic Active</span>
-              </div>
-            )}
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors relative"
-            >
-              <History size={20} className="text-slate-500" />
-              {history.length > 0 && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-white" />}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* LEFT: Standard Calculator */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50">
-              <div className="bg-slate-900 rounded-3xl p-6 mb-6 shadow-inner">
-                <div className="text-indigo-400 font-mono text-sm h-6 text-right opacity-60 transition-all truncate">{calcBuffer || ' '}</div>
-                <div className="text-white text-5xl font-black text-right tracking-tighter font-mono truncate">{calcDisplay}</div>
-              </div>
-              
-              <div className="grid grid-cols-4 gap-3">
-                <button onClick={handleClear} className="h-14 rounded-2xl font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all col-span-2">AC</button>
-                <button onClick={() => handleOp('/')} className="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">÷</button>
-                <button onClick={() => handleOp('*')} className="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">×</button>
-                
-                {[7, 8, 9].map(n => <button key={n} onClick={() => handleNum(n.toString())} className="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">{n}</button>)}
-                <button onClick={() => handleOp('-')} className="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">−</button>
-                
-                {[4, 5, 6].map(n => <button key={n} onClick={() => handleNum(n.toString())} className="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">{n}</button>)}
-                <button onClick={() => handleOp('+')} className="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">+</button>
-                
-                {[1, 2, 3].map(n => <button key={n} onClick={() => handleNum(n.toString())} className="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">{n}</button>)}
-                <button onClick={handleEqual} className="h-32 rounded-2xl font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg row-span-2 transition-all flex items-center justify-center"><Equal size={28} strokeWidth={3} /></button>
-                
-                <button onClick={() => handleNum('0')} className="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl col-span-2">0</button>
-                <button onClick={() => handleNum('.')} className="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">.</button>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT: Tabbed Field Calculators */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="flex p-1.5 bg-white border border-slate-200 rounded-full shadow-sm overflow-x-auto no-scrollbar">
-              {[
-                { id: 'finance', icon: ShoppingCart, label: 'Shopping & Finance' },
-                { id: 'health', icon: HeartPulse, label: 'Health' },
-                { id: 'math', icon: Zap, label: 'Science' },
-                { id: 'unit', icon: ArrowRightLeft, label: 'Convert' },
-                { id: 'utility', icon: Briefcase, label: 'More' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm ${
-                    activeTab === tab.id ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <tab.icon size={16} />
-                  {tab.label}
+            
+            <div class="flex items-center gap-3">
+                <div id="mic-status" class="hidden flex items-center gap-2 px-3 py-1 bg-rose-50 rounded-full border border-rose-100">
+                    <div class="w-2 h-2 bg-rose-500 rounded-full animate-ping"></div>
+                    <span class="text-[10px] font-bold text-rose-600 uppercase">Mic Active</span>
+                </div>
+                <button onclick="toggleHistory(true)" class="p-2 hover:bg-slate-100 rounded-full transition-colors relative">
+                    <i data-lucide="history" class="w-5 h-5 text-slate-500"></i>
+                    <div id="history-dot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-white"></div>
                 </button>
-              ))}
             </div>
-
-            <div className="min-h-[500px]">
-              {/* SHOPPING & FINANCE VIEW */}
-              {activeTab === 'finance' && (
-                <div className="animate-fadeIn space-y-6">
-                  {/* Shopping Tool */}
-                  <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
-                    <div className="p-8 bg-indigo-600 flex justify-between items-start text-white">
-                      <div>
-                        <h2 className="text-2xl font-black mb-1 text-white">Shopping Tool</h2>
-                        <p className="text-indigo-200 text-xs font-medium uppercase tracking-widest">Precision Discount Engine</p>
-                      </div>
-                      <button 
-                        onClick={toggleVoice}
-                        className={`h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
-                          isListening ? 'bg-rose-500 scale-110' : 'bg-white/10 hover:bg-white/20'
-                        }`}
-                      >
-                        {isListening ? <Mic size={24} /> : <MicOff size={24} />}
-                      </button>
-                    </div>
-
-                    <div className="p-8 space-y-8">
-                       <div className="bg-slate-50 rounded-3xl p-10 text-center border border-slate-100 relative overflow-hidden">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                            {shopMode === 'price' ? 'Estimated Final Price' : 'Calculated Percentage'}
-                          </p>
-                          <div className="text-7xl font-black text-slate-900 mb-2 flex items-center justify-center gap-1">
-                            {shopMode === 'price' && <span className="text-3xl opacity-30 mt-2 font-light">₹</span>}
-                            <span className="tabular-nums">{shopRes.main}</span>
-                          </div>
-                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full font-bold text-sm">
-                             <TrendingUp size={14} />
-                             {shopRes.sub}
-                          </div>
-                       </div>
-
-                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          <div className="flex bg-slate-100 p-1.5 rounded-2xl sm:col-span-2">
-                             <button onClick={() => setShopMode('price')} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${shopMode === 'price' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>FIND FINAL PRICE</button>
-                             <button onClick={() => setShopMode('percent')} className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${shopMode === 'percent' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}>FIND DISCOUNT %</button>
-                          </div>
-                          
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">Market Price (₹)</label>
-                             <input type="number" value={shopOrig} onChange={e => setShopOrig(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0" />
-                          </div>
-                          
-                          <div className="space-y-2">
-                             <label className="text-[10px] font-black text-slate-400 uppercase ml-3">{shopMode === 'price' ? 'Discount (%)' : 'Sale Price (₹)'}</label>
-                             <div className="relative">
-                               <input type="number" value={shopValue} onChange={e => setShopValue(e.target.value)} className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0" />
-                               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                                 {shopMode === 'price' ? <Percent size={20} /> : <TrendingUp size={20} />}
-                               </div>
-                             </div>
-                          </div>
-                       </div>
-                    </div>
-                  </div>
-
-                  {/* Stock Average Tool */}
-                  <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8 space-y-6">
-                    <div className="flex items-center gap-4 mb-2">
-                       <div className="p-3 bg-indigo-50 text-indigo-500 rounded-2xl"><TrendingUp size={24} /></div>
-                       <h2 className="text-xl font-bold text-slate-800">Stock Average Calculator</h2>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">1st Purchase</p>
-                        <div className="space-y-2">
-                           <input type="number" value={stk.q1} onChange={e => setStk({...stk, q1: e.target.value})} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity" />
-                           <input type="number" value={stk.p1} onChange={e => setStk({...stk, p1: e.target.value})} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)" />
-                        </div>
-                      </div>
-                      <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2nd Purchase</p>
-                        <div className="space-y-2">
-                           <input type="number" value={stk.q2} onChange={e => setStk({...stk, q2: e.target.value})} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity" />
-                           <input type="number" value={stk.p2} onChange={e => setStk({...stk, p2: e.target.value})} className="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <button onClick={handleStkCalc} className="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem] shadow-xl hover:bg-indigo-700 transition-all">CALCULATE AVERAGE</button>
-                    
-                    {stk.res && (
-                       <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-center">
-                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">New Average Cost</p>
-                          <div className="text-4xl font-black text-indigo-900">₹{stk.res}</div>
-                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* HEALTH VIEW */}
-              {activeTab === 'health' && (
-                <div className="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
-                  <div className="flex items-center gap-4 mb-2">
-                     <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl"><HeartPulse size={24} /></div>
-                     <h2 className="text-xl font-bold text-slate-800">Body Mass Index</h2>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-3">Weight (kg)</label>
-                        <input type="number" value={bmi.w} onChange={e => setBmi({...bmi, w: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl text-xl font-bold" placeholder="70" />
-                     </div>
-                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase ml-3">Height (cm)</label>
-                        <input type="number" value={bmi.h} onChange={e => setBmi({...bmi, h: e.target.value})} className="w-full bg-slate-50 p-4 rounded-2xl text-xl font-bold" placeholder="175" />
-                     </div>
-                  </div>
-                  <button onClick={handleBMICalc} className="w-full bg-rose-600 text-white font-black py-5 rounded-[2rem] shadow-xl hover:bg-rose-700 transition-all">CALCULATE BMI</button>
-                  {bmi.res && (
-                     <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-center">
-                        <div className="text-5xl font-black text-rose-900 mb-1 tabular-nums">{bmi.res}</div>
-                        <div className={`text-sm font-bold uppercase tracking-wider ${bmi.status === 'Healthy' ? 'text-emerald-500' : 'text-amber-500'}`}>
-                           {bmi.status}
-                        </div>
-                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* SCIENCE VIEW */}
-              {activeTab === 'math' && (
-                <div className="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center">
-                   <div className="mx-auto w-20 h-20 bg-blue-50 text-blue-500 rounded-3xl flex items-center justify-center mb-6">
-                      <Zap size={40} />
-                   </div>
-                   <h2 className="text-xl font-bold text-slate-800 mb-2">Pythagorean Theorem</h2>
-                   <p className="text-slate-400 text-sm mb-8">Calculate Side C (Hypotenuse) of a triangle.</p>
-                   <div className="grid grid-cols-2 gap-4 mb-6">
-                      <input type="number" placeholder="Side A" value={pyth.a} onChange={e => setPyth({...pyth, a: e.target.value})} className="p-4 bg-slate-50 rounded-2xl font-bold text-center border-2 border-transparent focus:border-blue-100" />
-                      <input type="number" placeholder="Side B" value={pyth.b} onChange={e => setPyth({...pyth, b: e.target.value})} className="p-4 bg-slate-50 rounded-2xl font-bold text-center border-2 border-transparent focus:border-blue-100" />
-                   </div>
-                   <button 
-                     onClick={() => {
-                       const r = Math.sqrt(pyth.a**2 + pyth.b**2).toFixed(2);
-                       setPyth({...pyth, res: r});
-                       addToHistory('Pythagoras', r);
-                     }}
-                     className="w-full bg-blue-600 text-white font-black py-5 rounded-[2rem] shadow-xl"
-                   >FIND SIDE C</button>
-                   {pyth.res && <div className="mt-8 text-5xl font-black text-blue-900 tracking-tighter">C = {pyth.res}</div>}
-                </div>
-              )}
-
-              {/* UNIT VIEW */}
-              {activeTab === 'unit' && (
-                <div className="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
-                   <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3"><Ruler className="text-slate-400" /> Unit Bridge</h2>
-                   <div className="space-y-4">
-                      <select value={unit.type} onChange={e => setUnit({...unit, type: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-slate-200">
-                        <option value="kg-lb">Kilogram → Pound</option>
-                        <option value="lb-kg">Pound → Kilogram</option>
-                        <option value="km-mi">Kilometer → Mile</option>
-                        <option value="c-f">Celsius → Fahrenheit</option>
-                      </select>
-                      <input type="number" value={unit.val} onChange={e => setUnit({...unit, val: e.target.value})} className="w-full p-6 bg-slate-900 text-white rounded-3xl text-3xl font-black text-center tabular-nums" placeholder="0" />
-                      <button 
-                        onClick={() => {
-                          let r = 0;
-                          if(unit.type === 'kg-lb') r = unit.val * 2.20462;
-                          else if(unit.type === 'lb-kg') r = unit.val / 2.20462;
-                          else if(unit.type === 'km-mi') r = unit.val * 0.621371;
-                          else r = (unit.val * 9/5) + 32;
-                          const formatted = r.toFixed(2);
-                          setUnit({...unit, res: formatted});
-                          addToHistory('Convert', formatted);
-                        }}
-                        className="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem]"
-                      >CONVERT</button>
-                      {unit.res && (
-                        <div className="p-8 bg-indigo-50 border border-indigo-100 rounded-3xl text-center text-4xl font-black text-indigo-900">
-                          {unit.res}
-                        </div>
-                      )}
-                   </div>
-                </div>
-              )}
-
-              {/* UTILITY VIEW */}
-              {activeTab === 'utility' && (
-                <div className="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
-                   <div className="flex items-center gap-4">
-                     <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl"><Calendar /></div>
-                     <h2 className="text-xl font-bold text-slate-800">Age Analyzer</h2>
-                   </div>
-                   <div className="space-y-4">
-                     <input type="date" value={age.dob} onChange={e => setAge({...age, dob: e.target.value})} className="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold focus:border-amber-100 outline-none" />
-                     <button 
-                       onClick={() => {
-                         const y = Math.floor((new Date() - new Date(age.dob)) / (1000*60*60*24*365.25));
-                         if (!isNaN(y)) { setAge({...age, res: y}); addToHistory('Age', `${y}y`); }
-                       }}
-                       className="w-full bg-amber-500 text-white font-black py-5 rounded-[2rem]"
-                     >GET AGE</button>
-                     {age.res !== null && (
-                       <div className="text-center p-8 bg-amber-50 rounded-3xl border border-amber-100">
-                          <p className="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Elapsed Years</p>
-                          <div className="text-5xl font-black text-amber-900">{age.res}</div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
-      </main>
+    </header>
 
-      {/* History Sidebar */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-[60] flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
-          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl p-6 flex flex-col">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><History size={20} className="text-indigo-600" /> History</h3>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><X size={20}/></button>
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- LEFT: Standard Calculator -->
+            <div class="lg:col-span-5 space-y-6">
+                <div class="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50">
+                    <div class="bg-slate-900 rounded-3xl p-6 mb-6 shadow-inner">
+                        <div id="calc-buffer" class="text-indigo-400 font-mono text-sm h-6 text-right opacity-60 transition-all truncate"></div>
+                        <div id="calc-display" class="text-white text-5xl font-black text-right tracking-tighter font-mono truncate">0</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-4 gap-3">
+                        <button onclick="handleClear()" class="h-14 rounded-2xl font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all col-span-2">AC</button>
+                        <button onclick="handleOp('/')" class="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">÷</button>
+                        <button onclick="handleOp('*')" class="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">×</button>
+                        
+                        <button onclick="handleNum('7')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">7</button>
+                        <button onclick="handleNum('8')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">8</button>
+                        <button onclick="handleNum('9')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">9</button>
+                        <button onclick="handleOp('-')" class="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">−</button>
+                        
+                        <button onclick="handleNum('4')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">4</button>
+                        <button onclick="handleNum('5')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">5</button>
+                        <button onclick="handleNum('6')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">6</button>
+                        <button onclick="handleOp('+')" class="h-14 rounded-2xl font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all">+</button>
+                        
+                        <button onclick="handleNum('1')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">1</button>
+                        <button onclick="handleNum('2')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">2</button>
+                        <button onclick="handleNum('3')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">3</button>
+                        <button onclick="handleEqual()" class="h-32 rounded-2xl font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg row-span-2 transition-all flex items-center justify-center">
+                            <i data-lucide="equal" class="w-7 h-7"></i>
+                        </button>
+                        
+                        <button onclick="handleNum('0')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl col-span-2">0</button>
+                        <button onclick="handleNum('.')" class="h-14 rounded-2xl font-bold bg-slate-50 text-slate-700 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 transition-all text-xl">.</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Tabbed Field Calculators -->
+            <div class="lg:col-span-7 space-y-6">
+                <div class="flex p-1.5 bg-white border border-slate-200 rounded-full shadow-sm overflow-x-auto no-scrollbar">
+                    <button onclick="switchTab('finance')" id="tab-finance" class="tab-btn active-tab flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm bg-indigo-600 text-white shadow-md">
+                        <i data-lucide="shopping-cart" class="w-4 h-4"></i> Shopping & Finance
+                    </button>
+                    <button onclick="switchTab('health')" id="tab-health" class="tab-btn flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm text-slate-500 hover:text-slate-800">
+                        <i data-lucide="heart-pulse" class="w-4 h-4"></i> Health
+                    </button>
+                    <button onclick="switchTab('math')" id="tab-math" class="tab-btn flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm text-slate-500 hover:text-slate-800">
+                        <i data-lucide="zap" class="w-4 h-4"></i> Science
+                    </button>
+                    <button onclick="switchTab('unit')" id="tab-unit" class="tab-btn flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm text-slate-500 hover:text-slate-800">
+                        <i data-lucide="arrow-right-left" class="w-4 h-4"></i> Convert
+                    </button>
+                    <button onclick="switchTab('utility')" id="tab-utility" class="tab-btn flex items-center gap-2 px-6 py-2.5 rounded-full transition-all duration-300 whitespace-nowrap font-bold text-sm text-slate-500 hover:text-slate-800">
+                        <i data-lucide="briefcase" class="w-4 h-4"></i> More
+                    </button>
+                </div>
+
+                <div id="tab-content" class="min-h-[500px]">
+                    <!-- Finance Content (Default) -->
+                    <div id="view-finance" class="animate-fadeIn space-y-6">
+                        <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
+                            <div class="p-8 bg-indigo-600 flex justify-between items-start text-white">
+                                <div>
+                                    <h2 class="text-2xl font-black mb-1 text-white">Shopping Tool</h2>
+                                    <p class="text-indigo-200 text-xs font-medium uppercase tracking-widest">Precision Discount Engine</p>
+                                </div>
+                                <button onclick="toggleVoice()" id="mic-trigger" class="h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl bg-white/10 hover:bg-white/20">
+                                    <i data-lucide="mic-off" class="w-6 h-6" id="mic-icon"></i>
+                                </button>
+                            </div>
+
+                            <div class="p-8 space-y-8">
+                                <div class="bg-slate-50 rounded-3xl p-10 text-center border border-slate-100">
+                                    <p id="shop-label" class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Estimated Final Price</p>
+                                    <div class="text-7xl font-black text-slate-900 mb-2 flex items-center justify-center gap-1">
+                                        <span id="shop-currency" class="text-3xl opacity-30 mt-2 font-light">₹</span>
+                                        <span id="shop-res-main" class="tabular-nums">0</span>
+                                    </div>
+                                    <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full font-bold text-sm">
+                                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                                        <span id="shop-res-sub">Ready for values</span>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div class="flex bg-slate-100 p-1.5 rounded-2xl sm:col-span-2">
+                                        <button onclick="setShopMode('price')" id="btn-mode-price" class="flex-1 py-3 rounded-xl text-xs font-black transition-all bg-white shadow text-indigo-600">FIND FINAL PRICE</button>
+                                        <button onclick="setShopMode('percent')" id="btn-mode-percent" class="flex-1 py-3 rounded-xl text-xs font-black transition-all text-slate-400">FIND DISCOUNT %</button>
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <label class="text-[10px] font-black text-slate-400 uppercase ml-3">Market Price (₹)</label>
+                                        <input type="number" id="shop-orig" oninput="updateShop()" class="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0">
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <label id="shop-input-label" class="text-[10px] font-black text-slate-400 uppercase ml-3">Discount (%)</label>
+                                        <div class="relative">
+                                            <input type="number" id="shop-value" oninput="updateShop()" class="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0">
+                                            <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                                                <i data-lucide="percent" class="w-5 h-5" id="shop-icon-input"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stock Average Tool -->
+                        <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8 space-y-6">
+                            <div class="flex items-center gap-4 mb-2">
+                                <div class="p-3 bg-indigo-50 text-indigo-500 rounded-2xl"><i data-lucide="trending-up" class="w-6 h-6"></i></div>
+                                <h2 class="text-xl font-bold text-slate-800">Stock Average Calculator</h2>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div class="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">1st Purchase</p>
+                                    <div class="space-y-2">
+                                        <input type="number" id="stk-q1" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity">
+                                        <input type="number" id="stk-p1" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)">
+                                    </div>
+                                </div>
+                                <div class="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">2nd Purchase</p>
+                                    <div class="space-y-2">
+                                        <input type="number" id="stk-q2" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity">
+                                        <input type="number" id="stk-p2" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button onclick="handleStkCalc()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem] shadow-xl hover:bg-indigo-700 transition-all">CALCULATE AVERAGE</button>
+                            
+                            <div id="stk-res-box" class="hidden bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-center">
+                                <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">New Average Cost</p>
+                                <div id="stk-res-val" class="text-4xl font-black text-indigo-900">₹0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- History Sidebar -->
+    <div id="history-sidebar" class="hidden fixed inset-0 z-[60] flex justify-end">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="toggleHistory(false)"></div>
+        <div class="relative w-full max-w-sm bg-white h-full shadow-2xl p-6 flex flex-col">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <i data-lucide="history" class="w-5 h-5 text-indigo-600"></i> History
+                </h3>
+                <button onclick="toggleHistory(false)" class="p-2 hover:bg-slate-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             
-            <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar">
-              {history.length === 0 ? (
-                <div className="text-center py-20 text-slate-400 italic font-medium">Empty logs</div>
-              ) : (
-                history.map(item => (
-                  <div key={item.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">{item.name}</span>
-                      <span className="text-lg font-bold text-slate-800">{item.result}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-300">{item.time}</span>
-                  </div>
-                ))
-              )}
+            <div id="history-list" class="flex-1 overflow-y-auto space-y-3 no-scrollbar">
+                <div class="text-center py-20 text-slate-400 italic font-medium">Empty logs</div>
             </div>
             
-            {history.length > 0 && (
-              <button 
-                onClick={() => setHistory([])}
-                className="mt-6 w-full py-4 bg-slate-100 text-slate-500 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
-              >
-                <Trash2 size={16} /> Clear
-              </button>
-            )}
-          </div>
+            <button id="clear-history-btn" onclick="clearHistory()" class="hidden mt-6 w-full py-4 bg-slate-100 text-slate-500 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-rose-50 hover:text-rose-500 transition-all flex items-center justify-center gap-2">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Clear
+            </button>
         </div>
-      )}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-      `}} />
     </div>
-  );
-};
 
-export default App;
+    <!-- Scripts -->
+    <script>
+        // --- Initialization ---
+        let history = [];
+        let activeTabId = 'finance';
+        
+        // Calculator State
+        let calcDisplay = '0';
+        let calcPrevValue = null;
+        let lastOp = null;
+        let shouldReset = false;
+        let calcBuffer = '';
 
-```
+        // Shopping State
+        let shopMode = 'price'; // or 'percent'
+        let isListening = false;
+        let recognition = null;
+
+        window.onload = () => {
+            lucide.createIcons();
+            initSpeech();
+            switchTab('finance');
+        };
+
+        // --- Core History ---
+        function addToHistory(name, result) {
+            const entry = {
+                id: Date.now(),
+                name,
+                result,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            history.unshift(entry);
+            if (history.length > 15) history.pop();
+            renderHistory();
+            document.getElementById('history-dot').classList.remove('hidden');
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            const clearBtn = document.getElementById('clear-history-btn');
+            
+            if (history.length === 0) {
+                list.innerHTML = '<div class="text-center py-20 text-slate-400 italic font-medium">Empty logs</div>';
+                clearBtn.classList.add('hidden');
+                document.getElementById('history-dot').classList.add('hidden');
+                return;
+            }
+
+            clearBtn.classList.remove('hidden');
+            list.innerHTML = history.map(item => `
+                <div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex justify-between items-center animate-fadeIn">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">${item.name}</span>
+                        <span class="text-lg font-bold text-slate-800">${item.result}</span>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-300">${item.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            history = [];
+            renderHistory();
+        }
+
+        function toggleHistory(show) {
+            const el = document.getElementById('history-sidebar');
+            if (show) {
+                el.classList.remove('hidden');
+                document.getElementById('history-dot').classList.add('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        // --- Tabs ---
+        const tabs = {
+            finance: `
+                <div class="animate-fadeIn space-y-6">
+                    <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden">
+                        <div class="p-8 bg-indigo-600 flex justify-between items-start text-white">
+                            <div>
+                                <h2 class="text-2xl font-black mb-1 text-white">Shopping Tool</h2>
+                                <p class="text-indigo-200 text-xs font-medium uppercase tracking-widest">Precision Discount Engine</p>
+                            </div>
+                            <button onclick="toggleVoice()" id="mic-trigger" class="h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl bg-white/10 hover:bg-white/20">
+                                <i data-lucide="mic-off" class="w-6 h-6" id="mic-icon"></i>
+                            </button>
+                        </div>
+                        <div class="p-8 space-y-8">
+                            <div class="bg-slate-50 rounded-3xl p-10 text-center border border-slate-100">
+                                <p id="shop-label" class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Estimated Final Price</p>
+                                <div class="text-7xl font-black text-slate-900 mb-2 flex items-center justify-center gap-1">
+                                    <span id="shop-currency" class="text-3xl opacity-30 mt-2 font-light">₹</span>
+                                    <span id="shop-res-main" class="tabular-nums">0</span>
+                                </div>
+                                <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-full font-bold text-sm">
+                                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                                    <span id="shop-res-sub">Ready for values</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div class="flex bg-slate-100 p-1.5 rounded-2xl sm:col-span-2">
+                                    <button onclick="setShopMode('price')" id="btn-mode-price" class="flex-1 py-3 rounded-xl text-xs font-black transition-all bg-white shadow text-indigo-600">FIND FINAL PRICE</button>
+                                    <button onclick="setShopMode('percent')" id="btn-mode-percent" class="flex-1 py-3 rounded-xl text-xs font-black transition-all text-slate-400">FIND DISCOUNT %</button>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black text-slate-400 uppercase ml-3">Market Price (₹)</label>
+                                    <input type="number" id="shop-orig" oninput="updateShop()" class="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0">
+                                </div>
+                                <div class="space-y-2">
+                                    <label id="shop-input-label" class="text-[10px] font-black text-slate-400 uppercase ml-3">Discount (%)</label>
+                                    <div class="relative">
+                                        <input type="number" id="shop-value" oninput="updateShop()" class="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white p-4 rounded-2xl text-xl font-bold transition-all outline-none" placeholder="0">
+                                        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                                            <i data-lucide="percent" class="w-5 h-5" id="shop-icon-input"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8 space-y-6">
+                        <div class="flex items-center gap-4 mb-2">
+                            <div class="p-3 bg-indigo-50 text-indigo-500 rounded-2xl"><i data-lucide="trending-up" class="w-6 h-6"></i></div>
+                            <h2 class="text-xl font-bold text-slate-800">Stock Average Calculator</h2>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div class="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">1st Purchase</p>
+                                <div class="space-y-2">
+                                    <input type="number" id="stk-q1" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity">
+                                    <input type="number" id="stk-p1" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)">
+                                </div>
+                            </div>
+                            <div class="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">2nd Purchase</p>
+                                <div class="space-y-2">
+                                    <input type="number" id="stk-q2" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Quantity">
+                                    <input type="number" id="stk-p2" class="w-full bg-white border border-slate-200 p-3 rounded-xl text-sm font-bold" placeholder="Price (₹)">
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="handleStkCalc()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem] shadow-xl hover:bg-indigo-700 transition-all">CALCULATE AVERAGE</button>
+                        <div id="stk-res-box" class="hidden bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-center">
+                            <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">New Average Cost</p>
+                            <div id="stk-res-val" class="text-4xl font-black text-indigo-900">₹0</div>
+                        </div>
+                    </div>
+                </div>`,
+            health: `
+                <div class="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
+                    <div class="flex items-center gap-4 mb-2">
+                        <div class="p-3 bg-rose-50 text-rose-500 rounded-2xl"><i data-lucide="heart-pulse" class="w-6 h-6"></i></div>
+                        <h2 class="text-xl font-bold text-slate-800">Body Mass Index</h2>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-3">Weight (kg)</label>
+                            <input type="number" id="bmi-w" class="w-full bg-slate-50 p-4 rounded-2xl text-xl font-bold outline-none border-2 border-transparent focus:border-rose-100" placeholder="70">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase ml-3">Height (cm)</label>
+                            <input type="number" id="bmi-h" class="w-full bg-slate-50 p-4 rounded-2xl text-xl font-bold outline-none border-2 border-transparent focus:border-rose-100" placeholder="175">
+                        </div>
+                    </div>
+                    <button onclick="handleBMICalc()" class="w-full bg-rose-600 text-white font-black py-5 rounded-[2rem] shadow-xl hover:bg-rose-700 transition-all">CALCULATE BMI</button>
+                    <div id="bmi-res-box" class="hidden bg-slate-50 p-8 rounded-3xl border border-slate-100 text-center">
+                        <div id="bmi-res-val" class="text-5xl font-black text-rose-900 mb-1 tabular-nums">0</div>
+                        <div id="bmi-status" class="text-sm font-bold uppercase tracking-wider text-emerald-500">Healthy</div>
+                    </div>
+                </div>`,
+            math: `
+                <div class="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center">
+                    <div class="mx-auto w-20 h-20 bg-blue-50 text-blue-500 rounded-3xl flex items-center justify-center mb-6">
+                        <i data-lucide="zap" class="w-10 h-10"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">Pythagorean Theorem</h2>
+                    <p class="text-slate-400 text-sm mb-8">Calculate Side C (Hypotenuse) of a triangle.</p>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <input type="number" id="pyth-a" placeholder="Side A" class="p-4 bg-slate-50 rounded-2xl font-bold text-center border-2 border-transparent focus:border-blue-100 outline-none">
+                        <input type="number" id="pyth-b" placeholder="Side B" class="p-4 bg-slate-50 rounded-2xl font-bold text-center border-2 border-transparent focus:border-blue-100 outline-none">
+                    </div>
+                    <button onclick="handlePythCalc()" class="w-full bg-blue-600 text-white font-black py-5 rounded-[2rem] shadow-xl">FIND SIDE C</button>
+                    <div id="pyth-res-box" class="hidden mt-8 text-5xl font-black text-blue-900 tracking-tighter">C = <span id="pyth-res-val">0</span></div>
+                </div>`,
+            unit: `
+                <div class="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-3"><i data-lucide="ruler" class="text-slate-400"></i> Unit Bridge</h2>
+                    <div class="space-y-4">
+                        <select id="unit-type" class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold outline-none focus:border-slate-200">
+                            <option value="kg-lb">Kilogram → Pound</option>
+                            <option value="lb-kg">Pound → Kilogram</option>
+                            <option value="km-mi">Kilometer → Mile</option>
+                            <option value="c-f">Celsius → Fahrenheit</option>
+                        </select>
+                        <input type="number" id="unit-val" class="w-full p-6 bg-slate-900 text-white rounded-3xl text-3xl font-black text-center tabular-nums" placeholder="0">
+                        <button onclick="handleUnitCalc()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-[2rem]">CONVERT</button>
+                        <div id="unit-res-box" class="hidden p-8 bg-indigo-50 border border-indigo-100 rounded-3xl text-center text-4xl font-black text-indigo-900">
+                            0
+                        </div>
+                    </div>
+                </div>`,
+            utility: `
+                <div class="animate-fadeIn max-w-md mx-auto bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl space-y-6">
+                    <div class="flex items-center gap-4">
+                        <div class="p-3 bg-amber-50 text-amber-600 rounded-2xl"><i data-lucide="calendar" class="w-6 h-6"></i></div>
+                        <h2 class="text-xl font-bold text-slate-800">Age Analyzer</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <input type="date" id="age-dob" class="w-full p-4 bg-slate-50 border-2 border-transparent rounded-2xl font-bold focus:border-amber-100 outline-none">
+                        <button onclick="handleAgeCalc()" class="w-full bg-amber-500 text-white font-black py-5 rounded-[2rem]">GET AGE</button>
+                        <div id="age-res-box" class="hidden text-center p-8 bg-amber-50 rounded-3xl border border-amber-100">
+                            <p class="text-xs font-black text-amber-600 uppercase tracking-widest mb-1">Elapsed Years</p>
+                            <div id="age-res-val" class="text-5xl font-black text-amber-900">0</div>
+                        </div>
+                    </div>
+                </div>`
+        };
+
+        function switchTab(tabId) {
+            activeTabId = tabId;
+            const content = document.getElementById('tab-content');
+            content.innerHTML = tabs[tabId];
+            
+            // Update Buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+                btn.classList.add('text-slate-500', 'hover:text-slate-800');
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            activeBtn.classList.remove('text-slate-500', 'hover:text-slate-800');
+            activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+            
+            lucide.createIcons();
+            
+            // Special initialization for specific tabs if needed
+            if(tabId === 'finance') {
+                updateShop();
+            }
+        }
+
+        // --- Standard Calculator ---
+        function handleNum(num) {
+            if (calcDisplay === '0' || shouldReset) {
+                calcDisplay = num === '.' ? '0.' : num;
+                shouldReset = false;
+            } else {
+                if (num === '.' && calcDisplay.includes('.')) return;
+                calcDisplay += num;
+            }
+            updateCalcDisplay();
+        }
+
+        function handleOp(op) {
+            const current = parseFloat(calcDisplay);
+            if (calcPrevValue !== null && !shouldReset) {
+                performCalculation();
+            } else {
+                calcPrevValue = current;
+            }
+            lastOp = op;
+            calcBuffer = `${current} ${op === '*' ? '×' : op === '/' ? '÷' : op}`;
+            shouldReset = true;
+            updateCalcDisplay();
+        }
+
+        function performCalculation() {
+            if (lastOp === null || calcPrevValue === null) return;
+            const current = parseFloat(calcDisplay);
+            let res = 0;
+            switch (lastOp) {
+                case '+': res = calcPrevValue + current; break;
+                case '-': res = calcPrevValue - current; break;
+                case '*': res = calcPrevValue * current; break;
+                case '/': res = current !== 0 ? calcPrevValue / current : 'Error'; break;
+                default: return;
+            }
+            const finalRes = typeof res === 'number' ? (Number.isInteger(res) ? res : res.toFixed(2)) : res;
+            calcDisplay = finalRes.toString();
+            calcPrevValue = typeof res === 'number' ? res : null;
+            updateCalcDisplay();
+            return finalRes;
+        }
+
+        function handleEqual() {
+            const res = performCalculation();
+            if (res !== undefined) {
+                calcBuffer = '';
+                lastOp = null;
+                shouldReset = true;
+                updateCalcDisplay();
+                addToHistory('Calculation', res);
+            }
+        }
+
+        function handleClear() {
+            calcDisplay = '0';
+            calcPrevValue = null;
+            calcBuffer = '';
+            lastOp = null;
+            shouldReset = false;
+            updateCalcDisplay();
+        }
+
+        function updateCalcDisplay() {
+            document.getElementById('calc-display').innerText = calcDisplay;
+            document.getElementById('calc-buffer').innerText = calcBuffer;
+        }
+
+        // --- Shopping Tool Logic ---
+        function setShopMode(mode) {
+            shopMode = mode;
+            const btnPrice = document.getElementById('btn-mode-price');
+            const btnPercent = document.getElementById('btn-mode-percent');
+            const label = document.getElementById('shop-label');
+            const inputLabel = document.getElementById('shop-input-label');
+            const currency = document.getElementById('shop-currency');
+            
+            if (mode === 'price') {
+                btnPrice.className = "flex-1 py-3 rounded-xl text-xs font-black transition-all bg-white shadow text-indigo-600";
+                btnPercent.className = "flex-1 py-3 rounded-xl text-xs font-black transition-all text-slate-400";
+                label.innerText = "Estimated Final Price";
+                inputLabel.innerText = "Discount (%)";
+                currency.classList.remove('hidden');
+                document.getElementById('shop-icon-input').setAttribute('data-lucide', 'percent');
+            } else {
+                btnPercent.className = "flex-1 py-3 rounded-xl text-xs font-black transition-all bg-white shadow text-indigo-600";
+                btnPrice.className = "flex-1 py-3 rounded-xl text-xs font-black transition-all text-slate-400";
+                label.innerText = "Calculated Percentage";
+                inputLabel.innerText = "Sale Price (₹)";
+                currency.classList.add('hidden');
+                document.getElementById('shop-icon-input').setAttribute('data-lucide', 'trending-up');
+            }
+            lucide.createIcons();
+            updateShop();
+        }
+
+        function updateShop() {
+            const orig = parseFloat(document.getElementById('shop-orig').value) || 0;
+            const val = parseFloat(document.getElementById('shop-value').value) || 0;
+            const mainEl = document.getElementById('shop-res-main');
+            const subEl = document.getElementById('shop-res-sub');
+
+            if (orig === 0) {
+                mainEl.innerText = '0';
+                subEl.innerText = 'Ready for values';
+                return;
+            }
+
+            if (shopMode === 'price') {
+                const final = orig - (orig * (val / 100));
+                mainEl.innerText = Math.round(final).toLocaleString();
+                subEl.innerText = `You Save ₹${Math.round(orig - final).toLocaleString()}`;
+            } else {
+                const p = ((orig - val) / orig) * 100;
+                mainEl.innerText = `${p.toFixed(1)}%`;
+                subEl.innerText = `You Save ₹${Math.round(orig - val).toLocaleString()}`;
+            }
+        }
+
+        // --- Other Tool Logic ---
+        function handleStkCalc() {
+            const q1 = parseFloat(document.getElementById('stk-q1').value) || 0;
+            const p1 = parseFloat(document.getElementById('stk-p1').value) || 0;
+            const q2 = parseFloat(document.getElementById('stk-q2').value) || 0;
+            const p2 = parseFloat(document.getElementById('stk-p2').value) || 0;
+            
+            if (q1 + q2 === 0) return;
+            const totalInv = (q1 * p1) + (q2 * p2);
+            const totalQty = q1 + q2;
+            const avg = (totalInv / totalQty).toFixed(2);
+            
+            document.getElementById('stk-res-val').innerText = `₹${avg}`;
+            document.getElementById('stk-res-box').classList.remove('hidden');
+            addToHistory('Stock Average', `₹${avg}`);
+        }
+
+        function handleBMICalc() {
+            const w = parseFloat(document.getElementById('bmi-w').value);
+            const h = parseFloat(document.getElementById('bmi-h').value);
+            if (!w || !h) return;
+            
+            const resValue = (w / ((h / 100) ** 2)).toFixed(1);
+            let statusLabel = 'Healthy';
+            let color = 'text-emerald-500';
+
+            if (resValue < 18.5) { statusLabel = 'Underweight'; color = 'text-amber-500'; }
+            else if (resValue >= 25 && resValue < 30) { statusLabel = 'Overweight'; color = 'text-amber-500'; }
+            else if (resValue >= 30) { statusLabel = 'Obese'; color = 'text-rose-500'; }
+
+            document.getElementById('bmi-res-val').innerText = resValue;
+            document.getElementById('bmi-status').innerText = statusLabel;
+            document.getElementById('bmi-status').className = `text-sm font-bold uppercase tracking-wider ${color}`;
+            document.getElementById('bmi-res-box').classList.remove('hidden');
+            addToHistory('BMI Check', resValue);
+        }
+
+        function handlePythCalc() {
+            const a = parseFloat(document.getElementById('pyth-a').value);
+            const b = parseFloat(document.getElementById('pyth-b').value);
+            if (!a || !b) return;
+
+            const res = Math.sqrt(a**2 + b**2).toFixed(2);
+            document.getElementById('pyth-res-val').innerText = res;
+            document.getElementById('pyth-res-box').classList.remove('hidden');
+            addToHistory('Pythagoras', res);
+        }
+
+        function handleUnitCalc() {
+            const type = document.getElementById('unit-type').value;
+            const val = parseFloat(document.getElementById('unit-val').value) || 0;
+            let r = 0;
+            
+            if(type === 'kg-lb') r = val * 2.20462;
+            else if(type === 'lb-kg') r = val / 2.20462;
+            else if(type === 'km-mi') r = val * 0.621371;
+            else r = (val * 9/5) + 32;
+
+            const res = r.toFixed(2);
+            document.getElementById('unit-res-box').innerText = res;
+            document.getElementById('unit-res-box').classList.remove('hidden');
+            addToHistory('Convert', res);
+        }
+
+        function handleAgeCalc() {
+            const dob = document.getElementById('age-dob').value;
+            if(!dob) return;
+            const y = Math.floor((new Date() - new Date(dob)) / (1000*60*60*24*365.25));
+            if (!isNaN(y)) {
+                document.getElementById('age-res-val').innerText = y;
+                document.getElementById('age-res-box').classList.remove('hidden');
+                addToHistory('Age', `${y}y`);
+            }
+        }
+
+        // --- Speech Logic ---
+        function initSpeech() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return;
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-IN';
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                const numbers = transcript.match(/\d+/g);
+                if (numbers && numbers.length >= 2) {
+                    if (activeTabId === 'finance') {
+                        document.getElementById('shop-orig').value = numbers[0];
+                        document.getElementById('shop-value').value = numbers[1];
+                        updateShop();
+                        addToHistory('Voice Shopping', `₹${numbers[0]} input`);
+                    }
+                }
+            };
+
+            recognition.onend = () => {
+                if (isListening) recognition.start();
+            };
+        }
+
+        function toggleVoice() {
+            if (!recognition) {
+                alert("Speech recognition not supported in this browser.");
+                return;
+            }
+
+            const micIcon = document.getElementById('mic-icon');
+            const micTrigger = document.getElementById('mic-trigger');
+            const micStatus = document.getElementById('mic-status');
+
+            if (isListening) {
+                isListening = false;
+                recognition.stop();
+                micIcon.setAttribute('data-lucide', 'mic-off');
+                micTrigger.className = "h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl bg-white/10 hover:bg-white/20";
+                micStatus.classList.add('hidden');
+            } else {
+                isListening = true;
+                recognition.start();
+                micIcon.setAttribute('data-lucide', 'mic');
+                micTrigger.className = "h-14 w-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl bg-rose-500 mic-active-pulse";
+                micStatus.classList.remove('hidden');
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
