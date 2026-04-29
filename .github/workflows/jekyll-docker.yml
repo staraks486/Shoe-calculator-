@@ -26,19 +26,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # You can keep your app on 20, or update to 24
-          cache: 'npm'
+          node-version: '20'
+          # Removed 'cache: npm' because no lock file was found.
+          # This prevents the "Dependencies lock file is not found" error.
 
       # Step 3: Application build steps
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          if [ -f package.json ]; then
+            npm install
+          else
+            echo "No package.json found, skipping npm install."
+          fi
 
       - name: Run Build
         run: npm run build --if-present
 
-      # Step 4: Test that actions/upload-artifact@v4 works with Node 24
+      # Step 4: Upload Artifacts
+      # Adjusted path to '*' or a common folder if index.html is missing
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-output
-          path: index.html
+          path: .
